@@ -1,2 +1,2 @@
-# Laboratory of Applied Robotics Student Interface
+# AppliedRoboticsStudentInterface
 Package used by student to complete the assignment of the course. 
