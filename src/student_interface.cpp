@@ -298,7 +298,10 @@ static bool state = false;
     cv::Mat green_mask_gate;    
     //cv::inRange(hsv_img, cv::Scalar(50, 80, 34), cv::Scalar(75, 255, 255), green_mask_gate);
     //cv::inRange(hsv_img, cv::Scalar(13, 68, 41), cv::Scalar(86, 255, 80), green_mask_gate);
-    cv::inRange(hsv_img, cv::Scalar(15, 65, 40), cv::Scalar(85, 255, 95), green_mask_gate);
+    // Older value
+    //cv::inRange(hsv_img, cv::Scalar(15, 65, 40), cv::Scalar(85, 255, 95), green_mask_gate);
+    // Dark w/ light
+    cv::inRange(hsv_img, cv::Scalar(35, 50, 25), cv::Scalar(85, 255, 95), green_mask_gate);
    
     // Find green regions - GATE
     std::vector<std::vector<cv::Point>> contours, contours_approx;
@@ -325,7 +328,7 @@ static bool state = false;
  
     for(auto& contour : contours){
       // Approximate polygon w/ fewer vertices if not precise
-      approxPolyDP(contour, approx_curve, 30, true);
+      approxPolyDP(contour, approx_curve, 10, true); //before 30
       if (approx_curve.size() != 4) continue;
       for (const auto& pt: approx_curve) {
         // Store (scaled) values of gate
@@ -355,6 +358,8 @@ cv::Mat rotate(cv::Mat in_ROI, double ang_degrees){
  
   const double MIN_AREA_SIZE = 100;
   std::string template_folder = "/home/lar2019/workspace/project/template/";
+  //std::string template_folder = "/home/robotics/workspace/group_5/template/";
+
   bool detect_green_victims(const cv::Mat& hsv_img, const double scale, std::vector<std::pair<int,Polygon>>& victim_list){
    
     // Find green regions
@@ -363,10 +368,13 @@ cv::Mat rotate(cv::Mat in_ROI, double ang_degrees){
     // store a binary image in green_mask where the white pixel are those contained in HSV rage (x,x,x) --> (y,y,y)
     //cv::inRange(hsv_img, cv::Scalar(50, 80, 34), cv::Scalar(75, 255, 255), green_mask_victims); //Simulator
     //cv::inRange(hsv_img, cv::Scalar(13, 68, 41), cv::Scalar(86, 255, 80), green_mask_victims);
-    cv::inRange(hsv_img, cv::Scalar(15, 65, 40), cv::Scalar(85, 255, 95), green_mask_victims);
+    // Older value
+    //cv::inRange(hsv_img, cv::Scalar(15, 65, 40), cv::Scalar(85, 255, 95), green_mask_victims);
+    // Dark w/ light
+    cv::inRange(hsv_img, cv::Scalar(35, 50, 25), cv::Scalar(85, 255, 95), green_mask_victims);
  
     // Apply some filtering
-    // Create the kernel of the filter i.e. a rectanble with dimension 3x3
+    // Create the kernel of the filter i.e. a rectangle with dimension 3x3
     cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size((1*2) + 1, (1*2)+1));
     // Dilate using the generated kernel
     cv::dilate(green_mask_victims, green_mask_victims, kernel);
@@ -490,11 +498,16 @@ cv::Mat rotate(cv::Mat in_ROI, double ang_degrees){
   }
  
   bool detect_blue_robot(const cv::Mat& hsv_img, const double scale, Polygon& triangle, double& x, double& y, double& theta){
- 
+
     cv::Mat blue_mask;    
     //cv::inRange(hsv_img, cv::Scalar(200, 80, 20), cv::Scalar(220, 220, 225), blue_mask);
     //cv::inRange(hsv_img, cv::Scalar(92, 80, 50), cv::Scalar(145, 255, 255), blue_mask);
-    cv::inRange(hsv_img, cv::Scalar(100, 75, 45), cv::Scalar(145, 255, 225), blue_mask);
+    // Older value
+    //cv::inRange(hsv_img, cv::Scalar(100, 75, 45), cv::Scalar(145, 255, 225), blue_mask);
+    // Dark w/ light
+    //cv::inRange(hsv_img, cv::Scalar(75, 35, 45), cv::Scalar(145, 255, 225), blue_mask);
+    // Bright w/ light
+    cv::inRange(hsv_img, cv::Scalar(90, 90, 45), cv::Scalar(150, 255, 225), blue_mask);
  
  
     // Process blue mask
@@ -507,7 +520,7 @@ cv::Mat rotate(cv::Mat in_ROI, double ang_degrees){
     for (int i=0; i<contours.size(); ++i)
     {
       // Approximate polygon w/ fewer vertices if not precise
-      cv::approxPolyDP(contours[i], approx_curve, 30, true);
+      cv::approxPolyDP(contours[i], approx_curve, 10, true); //Before 30
       if (approx_curve.size() != 3) continue;
       robot_found = true;
       break;
