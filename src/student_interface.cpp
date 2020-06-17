@@ -22,18 +22,6 @@ bool sort_pair(const std::pair<int,Polygon>& a, const std::pair<int,Polygon>& b)
     return (a.first < b.first);
 }
  
-double orientation(Point a, Point b, Point c){
- 
-    Point ab, cb;
-    ab.x = b.x-a.x; ab.y = b.y-a.y;
-    cb.x = b.x-c.x; cb.y = b.y-c.y;
- 
-    double dot = ab.x*cb.x + ab.y*cb.y;
-    double cross = ab.x*cb.y - ab.y*cb.x;
- 
-    return atan2(cross, dot);
-}
- 
 void loadImage(cv::Mat& img_out, const std::string& config_folder){  
   static bool initialized = false;
   static std::vector<cv::String> img_list; // list of images to load
@@ -227,9 +215,9 @@ static bool state = false;
   bool detect_red(const cv::Mat& hsv_img, const double scale, std::vector<Polygon>& obstacle_list){
    
     cv::Mat red_mask_low, red_mask_high, red_mask;
-    cv::inRange(hsv_img, cv::Scalar(0, 72, 105), cv::Scalar(20, 255, 255), red_mask_low);
-    //cv::inRange(hsv_img, cv::Scalar(175, 10, 10), cv::Scalar(179, 255, 255), red_mask_high);
-    cv::inRange(hsv_img, cv::Scalar(130, 81, 49), cv::Scalar(180, 255, 150), red_mask_high);
+    cv::inRange(hsv_img, cv::Scalar(0, 72, 105), cv::Scalar(20, 255, 255), red_mask_low); //Both
+    //cv::inRange(hsv_img, cv::Scalar(175, 10, 10), cv::Scalar(179, 255, 255), red_mask_high); //Simulator
+    cv::inRange(hsv_img, cv::Scalar(130, 81, 49), cv::Scalar(180, 255, 150), red_mask_high); //Real
     cv::addWeighted(red_mask_low, 1.0, red_mask_high, 1.0, 0.0, red_mask);
    
     // Find red regions
@@ -296,9 +284,8 @@ static bool state = false;
   bool detect_green_gate(const cv::Mat& hsv_img, const double scale, Polygon& gate){
  
     cv::Mat green_mask_gate;    
-    //cv::inRange(hsv_img, cv::Scalar(50, 80, 34), cv::Scalar(75, 255, 255), green_mask_gate);
-    //cv::inRange(hsv_img, cv::Scalar(13, 68, 41), cv::Scalar(86, 255, 80), green_mask_gate);
-    // Older value
+    //cv::inRange(hsv_img, cv::Scalar(50, 80, 34), cv::Scalar(75, 255, 255), green_mask_gate); //Simulator
+    //cv::inRange(hsv_img, cv::Scalar(13, 68, 41), cv::Scalar(86, 255, 80), green_mask_gate);  // Older value
     //cv::inRange(hsv_img, cv::Scalar(15, 65, 40), cv::Scalar(85, 255, 95), green_mask_gate);
     // Dark w/ light
     cv::inRange(hsv_img, cv::Scalar(35, 50, 25), cv::Scalar(85, 255, 95), green_mask_gate);
@@ -367,8 +354,7 @@ cv::Mat rotate(cv::Mat in_ROI, double ang_degrees){
    
     // store a binary image in green_mask where the white pixel are those contained in HSV rage (x,x,x) --> (y,y,y)
     //cv::inRange(hsv_img, cv::Scalar(50, 80, 34), cv::Scalar(75, 255, 255), green_mask_victims); //Simulator
-    //cv::inRange(hsv_img, cv::Scalar(13, 68, 41), cv::Scalar(86, 255, 80), green_mask_victims);
-    // Older value
+    //cv::inRange(hsv_img, cv::Scalar(13, 68, 41), cv::Scalar(86, 255, 80), green_mask_victims);  // Older value
     //cv::inRange(hsv_img, cv::Scalar(15, 65, 40), cv::Scalar(85, 255, 95), green_mask_victims);
     // Dark w/ light
     cv::inRange(hsv_img, cv::Scalar(35, 50, 25), cv::Scalar(85, 255, 95), green_mask_victims);
@@ -397,7 +383,7 @@ cv::Mat rotate(cv::Mat in_ROI, double ang_degrees){
       double area = cv::contourArea(contours[i]);
       if (area < MIN_AREA_SIZE) continue; // filter too small contours to remove false positives
  
-      std::vector<cv::Point> approx_curve;/////////////////////////////////////////
+      std::vector<cv::Point> approx_curve;
       approxPolyDP(contours[i], approx_curve, 10, true);
       if(approx_curve.size() < 6) continue; //fitler out the gate
      
@@ -501,8 +487,7 @@ cv::Mat rotate(cv::Mat in_ROI, double ang_degrees){
 
     cv::Mat blue_mask;    
     //cv::inRange(hsv_img, cv::Scalar(200, 80, 20), cv::Scalar(220, 220, 225), blue_mask);
-    //cv::inRange(hsv_img, cv::Scalar(92, 80, 50), cv::Scalar(145, 255, 255), blue_mask);
-    // Older value
+    //cv::inRange(hsv_img, cv::Scalar(92, 80, 50), cv::Scalar(145, 255, 255), blue_mask); // Older value & //Simulator
     //cv::inRange(hsv_img, cv::Scalar(100, 75, 45), cv::Scalar(145, 255, 225), blue_mask);
     // Dark w/ light
     //cv::inRange(hsv_img, cv::Scalar(75, 35, 45), cv::Scalar(145, 255, 225), blue_mask);
@@ -596,6 +581,7 @@ cv::Mat rotate(cv::Mat in_ROI, double ang_degrees){
     // RGB to HSV to then detect blue of robot more easily
     return detect_blue_robot(hsv_img, scale, triangle, x, y, theta);    
   }
+
 /* Struct path_pos
 x, y, theta for POSE
 pathIndex, parentIndex to find the path/parent in the corresponding lists*/
@@ -607,7 +593,8 @@ struct path_pos{
         int parentIndex;
         //path_pos q_parent;
     };
-//Check if the point is in the polygon
+
+//Check if the point is in the polygon (2nd type of obstacle check)
 int insidePolygon(Polygon obstacle, Point pt){
     int counter = 0;
     double xinters;
@@ -656,17 +643,6 @@ int insidePolygon(Polygon obstacle, Point pt){
     double gateX = (gate[0].x + gate[1].x + gate[2].x + gate[3].x)/4;
     double gateY = (gate[0].y + gate[1].y + gate[2].y + gate[3].y)/4;
  
-    // Compute gate orientation
-    double gateTh;
-    double dist_1 = sqrt(pow(gate[0].x-gate[1].x,2.0)+pow(gate[0].y-gate[1].y,2.0));
-    double dist_2 = sqrt(pow(gate[1].x-gate[2].x,2.0)+pow(gate[1].y-gate[2].y,2.0));
- 
-    if (dist_1 < dist_2){
-        gateTh = acos(fabs(gate[0].x-gate[1].x) / dist_1);
-    } else {
-        gateTh = acos(fabs(gate[1].x-gate[2].x) / dist_1);
-    }
- 
     //  - - - VICTIM CENTER - - -
     std::vector<Point> victim_center;
     double victim_X;
@@ -686,7 +662,7 @@ int insidePolygon(Polygon obstacle, Point pt){
         victim_center.emplace_back(victim_X, victim_Y);
     }
  
-    //  - - - OBSTACLE WORLD - - -
+    //  - - - OBSTACLES - - -
     std::vector<double> obs_radius;
     std::vector<Point> obs_center;
    
@@ -727,7 +703,7 @@ int insidePolygon(Polygon obstacle, Point pt){
     }
     rawPath.push_back(Point(gateX, gateY));
     
-    // - - - RRT GOES HERE - - -	
+    // - - - RRT - - -	
     srand(time(NULL));
     int MAX_X = (borders[1].x*100);
     int MIN_X = (borders[0].x*100);
@@ -738,10 +714,10 @@ int insidePolygon(Polygon obstacle, Point pt){
     double q_rand_x = 0;
     double q_rand_y = 0;
     int rand_count = 1;
-   
+
     path_pos q_near; //First node in the tree
    
-    std::vector<Pose> POINTS; //Temporary path from 1 goal to another goal
+    std::vector<Pose> POINTS; //Temporary path from one goal to another goal
 
     int goal = 1; //The first goal is the first number
     bool failed_to_reach_goal = false;
@@ -749,7 +725,7 @@ int insidePolygon(Polygon obstacle, Point pt){
     
     while(goal < rawPath.size()){
 
-        std::cout << "Current goal: " << goal << std::endl;
+        std::cout << "\n\n - - - CURRENT GOAL: "<< goal << " - - - \n\n\n"<< std::endl;
         list_q.clear();
         list_q.shrink_to_fit(); //For memory purposes
         list_qp.clear();
@@ -759,7 +735,7 @@ int insidePolygon(Polygon obstacle, Point pt){
         if(goal == 1){
             q_near.x = x;
             q_near.y = y;
-            q_near.theta = theta; //0;
+            q_near.theta = theta;
            
         }
 	//If it is not goal = 1, we want to take the last position in Path
@@ -774,14 +750,15 @@ int insidePolygon(Polygon obstacle, Point pt){
         //RRT Line 1
         Path p;
         list_q.push_back(q_near);
-        list_qp.push_back(p); //Adding empty path for indexing purposes 
+        list_qp.push_back(p); //Adding empty path for indexing purposes
+
         //RRT Line 2
         bool goalReached = false;
         while(goalReached == false){
             
            
             //Reset if not found for too long
-            if(list_q.size() > 6){
+            if(list_q.size() > 6){ //6 //14 //25
                 path_pos l = list_q.at(0); //We clear the lists but we keep the inicial qnear
                 Path lp = list_qp.at(0); //We clear the lists but we keep the inicial empty path for indexing purpos
                 list_q.clear();
@@ -791,11 +768,13 @@ int insidePolygon(Polygon obstacle, Point pt){
                 list_q.push_back(l);
                 list_qp.push_back(lp);         
             }
+
             bool rand_clear = false;
             double ANGLE = 0.0;
             int index;
             double min_dist;
-            //RRT Line 3 & 4
+
+            //RRT Line 3
             while(!rand_clear){
                 min_dist = 100;
                 index = 0;
@@ -808,14 +787,12 @@ int insidePolygon(Polygon obstacle, Point pt){
                 rand_count = rand_count +1;
  
                 if (rand_count % 2 == 0){
-                    q_rand_x =  rawPath[goal].x;//gateX;
-                    q_rand_y =  rawPath[goal].y;//gateY;
+                    q_rand_x =  rawPath[goal].x;
+                    q_rand_y =  rawPath[goal].y;
                     trying_for_goal = true;
                 }
    
                 //RRT Line 5 Calculate distance between q_rand and q_near
-       
-       
                 for(int i=0; i<list_q.size(); i++){
                     double dist_points = sqrt(pow((q_rand_x-list_q.at(i).x),2)+pow((q_rand_y-list_q.at(i).y),2));
                     if(dist_points < min_dist){
@@ -824,23 +801,61 @@ int insidePolygon(Polygon obstacle, Point pt){
                     }
                 }
                 //RRT Line 4
-                if((min_dist > 0.1 and min_dist < 0.4) or (rand_count % 2 == 0 and !failed_to_reach_goal) ){ //
+                if((min_dist > 0.05 and min_dist < 0.6) or (rand_count % 2 == 0 and !failed_to_reach_goal) ){
                     rand_clear = true;
                 }
             }
            
  
             //RRT Line 6
- 
-           
-           
- 
-            ANGLE = atan2(fabs(q_rand_y - list_q.at(index).y), fabs(q_rand_x - list_q.at(index).x));
-            if(q_rand_y < list_q.at(index).y){ //If qrand is under qnear, we switch the sign
-                ANGLE = -ANGLE;        
-            }
- 
- 
+	    double angle_bp = 0.0;
+	    angle_bp = atan2(fabs(q_rand_y - list_q.at(index).y), fabs(q_rand_x - list_q.at(index).x)); //Calculation of the magnitude of the angle between qrand and qnear
+		
+		//qrand is the gate or less than 25 cm from gate
+		if ((goal == rawPath.size()-1) and (sqrt(pow((q_rand_x - rawPath.at(rawPath.size()-1).x),2) + pow((q_rand_y - rawPath.at(rawPath.size()-1).y),2)) < 0.25)){ 
+			if ((q_rand_x > borders[1].x/2) and (q_rand_y > borders[3].y/2)){ //Arena right top corner
+				if(fabs(gateX-borders[2].x) < fabs(gateY- borders[2].y)) {ANGLE = 0.0;} //Gate vertical
+				else if (fabs(gateX-borders[2].x) > fabs(gateY-borders[2].y)) {ANGLE = M_PI/2;} //Gate horizontal
+			}
+			else if ((q_rand_x > borders[1].x/2) and (q_rand_y < borders[3].y/2)){ //Arena right bottom corner
+				if(fabs(gateX-borders[1].x) < fabs(gateY-borders[1].y)) {ANGLE = 0.0;} //0.0 -M_PI //Gate vertical
+				else if (fabs(gateX-borders[1].x) > fabs(gateY-borders[1].y)) {ANGLE = -M_PI/2;} //Gate horizontal
+			}
+			else if ((q_rand_x < borders[1].x/2) and (q_rand_y > borders[3].y/2)){ //Arena left top corner
+				if(fabs(gateX-borders[3].x) < fabs(gateY-borders[3].y)) {ANGLE = M_PI;} //Gate vertical
+				else if (fabs(gateX-borders[3].x) > fabs(gateY-borders[3].y)) {ANGLE = M_PI/2;} //Gate horizontal
+			}
+			else if ((q_rand_x < borders[1].x/2) and (q_rand_y < borders[3].y/2)){ //Arena left bottom corner
+				if(fabs(gateX-borders[0].x) < fabs(gateY-borders[0].y)) {ANGLE = M_PI;} //Gate vertical
+				else if (fabs(gateX-borders[0].x) > fabs(gateY-borders[0].y)) {ANGLE = -M_PI/2;} //Gate horizontal
+			}
+		}
+		//qrand is the last victim
+		else if ((goal == rawPath.size()-2) and (sqrt(pow((q_rand_x - rawPath.at(rawPath.size()-2).x),2) + pow((q_rand_y - rawPath.at(rawPath.size()-2).y),2)) < 0.0)){
+			if ((rawPath.at(goal+1).x > borders[1].x/2) and (rawPath.at(goal+1).y > borders[3].y/2)){ //Gate is on right top corner
+				if(fabs(gateX-borders[2].x) < fabs(gateY- borders[2].y)) {ANGLE = 0.0;} //Gate vertical
+				else if (fabs(gateX-borders[2].x) > fabs(gateY-borders[2].y)) {ANGLE = M_PI/2;} //Gate horizontal
+			}
+			else if ((rawPath.at(goal+1).x > borders[1].x/2) and (rawPath.at(goal+1).y < borders[3].y/2)){ //Gate ir on right bottom corner
+				if(fabs(gateX-borders[1].x) < fabs(gateY-borders[1].y)) {ANGLE = 0.0;} //0.0 -M_PI //Gate vertical
+				else if (fabs(gateX-borders[1].x) > fabs(gateY-borders[1].y)) {ANGLE = -M_PI/2;} //Gate horizontal
+			}
+			else if ((rawPath.at(goal+1).x < borders[1].x/2) and (rawPath.at(goal+1).y > borders[3].y/2)){ //Gate is on left top corner
+				if(fabs(gateX-borders[3].x) < fabs(gateY-borders[3].y)) {ANGLE = M_PI;} //Gate vertical
+				else if (fabs(gateX-borders[3].x) > fabs(gateY-borders[3].y)) {ANGLE = M_PI/2;} //Gate horizontal
+			}
+			else if ((rawPath.at(goal+1).x < borders[1].x/2) and (rawPath.at(goal+1).y < borders[3].y/2)){ //Gate is on left bottom corner
+				if(fabs(gateX-borders[0].x) < fabs(gateY-borders[0].y)) {ANGLE = M_PI;} //Gate vertical
+				else if (fabs(gateX-borders[0].x) > fabs(gateY-borders[0].y)) {ANGLE = -M_PI/2;} //Gate horizontal
+			}
+            	}
+		//qrand is a point before the victim
+		else{
+			if((rawPath.at(goal).x > list_q.at(index).x) and (rawPath.at(goal).y > list_q.at(index).y)) {ANGLE = angle_bp;} //qrand is in the right top corner of qnear
+			else if((rawPath.at(goal).x > list_q.at(index).x) and (rawPath.at(goal).y < list_q.at(index).y)) {ANGLE = -angle_bp;} //qrand is in the right bottom corner of qnear
+			else if((rawPath.at(goal).x < list_q.at(index).x) and (rawPath.at(goal).y > list_q.at(index).y)) {ANGLE = M_PI-angle_bp;} //qrand is in the left top corner of qnear
+			else if((rawPath.at(goal).x < list_q.at(index).x) and (rawPath.at(goal).y < list_q.at(index).y)) {ANGLE = M_PI+angle_bp;} //qrand is in the left bottom corner of qnear
+            	}
             
             Path newPath;
             dubinsCurve dubins = {};
@@ -863,11 +878,11 @@ int insidePolygon(Polygon obstacle, Point pt){
                     if(trying_for_goal){failed_to_reach_goal = true; trying_for_goal = false;}          
                     break; 
                 }
-                for(int i=0; i<obstacle_list.size(); i++){
+                for(int i=0; i<obstacle_list.size(); i++){ //2nd type of obstacle check
                     double dist_to_ob = sqrt(pow((newPath.points.at(j).x-obs_center.at(i).x),2)+pow((newPath.points.at(j).y-obs_center.at(i).y),2));
                     double result = insidePolygon(obstacle_list.at(i), Point(newPath.points.at(j).x,newPath.points.at(j).y));
                    
-                    if(result != 1 or dist_to_ob < (obs_radius.at(i)+0.04)){
+                    if(result != 1 or dist_to_ob < (obs_radius.at(i)+0.04)){ //1st type of obstacle check
                         collision = true;
                         if(trying_for_goal){failed_to_reach_goal = true;trying_for_goal = false;}
                         break; 
@@ -881,37 +896,35 @@ int insidePolygon(Polygon obstacle, Point pt){
        
                 
                 failed_to_reach_goal = false;
- 		
+ 		//RRT Line 8 and 9 - add vertex and edge
                 path_pos q_new;
                 q_new.x = newPath.points.back().x;
                 q_new.y = newPath.points.back().y;
                 
                 q_new.theta = newPath.points.back().theta;
                 q_new.pathIndex = list_q.size();
-                //RRT Line 8
                 q_new.parentIndex = index;
                 
                 list_q.push_back(q_new);
                 list_qp.push_back(newPath);
  
-                //RRT Line 9
-       
-                if(sqrt(pow((q_new.x - rawPath.at(goal).x),2)+pow((q_new.y - rawPath.at(goal).y),2)) < 0.01){
+       		//Check if it reachead the victim and finished the subpath
+                if(sqrt(pow((q_new.x - rawPath.at(goal).x),2)+pow((q_new.y - rawPath.at(goal).y),2)) < 0.01){  
                     
                     goal = goal+1;
                     goalReached = true;
-                    std::cout << "Goal " << goal << "reached." << std::endl;
+		    std::cout << "\n\n - - - GOAL "<< goal-1 << " REACHED - - - \n\n\n"<< std::endl;
                 }
             }
        
 
             if(goalReached){
                
-                
+                //Gets the last position
                 path_pos pos = list_q.back();
                 
        
-                while(pos.pathIndex != 0){
+                while(pos.pathIndex != 0){//filling in the temporary path
                     
                     POINTS.insert(POINTS.begin(),list_qp.at(pos.pathIndex).points.begin(),list_qp.at(pos.pathIndex).points.end());
                    
@@ -921,7 +934,7 @@ int insidePolygon(Polygon obstacle, Point pt){
             }
            
         }
-        path.points.insert(path.points.end(),POINTS.begin(), POINTS.end());
+        path.points.insert(path.points.end(),POINTS.begin(), POINTS.end()); //concatenation of subpaths into a full path
         POINTS.clear();
         POINTS.shrink_to_fit();
         }
